@@ -4276,20 +4276,17 @@ AWS.S3.ManagedUpload = AWS.util.inherit({
     var runFill = true;
     if (self.sliceFn) {
       self.fillQueue = self.fillBuffer;
-    } else if (AWS.util.isNode()) {
-      var Stream = AWS.util.nodeRequire('stream').Stream;
-      if (self.body instanceof Stream) {
-        runFill = false;
-        self.fillQueue = self.fillStream;
-        self.partBuffers = [];
-        self.body.
-          on('readable', function() { self.fillQueue(); }).
-          on('end', function() {
+  } else if (AWS.util.isReadableStream(self.body)) {
+      runFill = false;
+      self.fillQueue = self.fillStream;
+      self.partBuffers = [];
+      self.body.
+        on('readable', function() { self.fillQueue(); }).
+        on('end', function() {
             self.isDoneChunking = true;
             self.numParts = self.totalPartNumbers;
             self.fillQueue.call(self);
-          });
-      }
+        });
     }
 
     if (runFill) self.fillQueue.call(self);
@@ -6527,6 +6524,12 @@ var util = {
   },
   multiRequire: function multiRequire(module1, module2) {
     return require(util.isNode() ? module1 : module2);
+  },
+
+  isReadableStream: function isReadableStream(obj) {
+    return typeof obj.read === 'function' &&
+        typeof obj._read === 'function' &&
+        typeof obj.on === 'function';
   },
 
   uriEscape: function uriEscape(string) {
@@ -8834,7 +8837,7 @@ function hash(alg, key) {
   return {
     update: function (data) {
       if(!Buffer.isBuffer(data)) data = new Buffer(data)
-        
+
       bufs.push(data)
       length += data.length
       return this
